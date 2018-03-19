@@ -59,6 +59,7 @@ lazy val rootProject = (project in file("."))
     json4s,
     braveBackend,
     prometheusBackend,
+    hystrixBackend,
     tests
   )
 
@@ -198,6 +199,17 @@ lazy val prometheusBackend: Project = (project in file("metrics/prometheus-backe
     name := "prometheus-backend",
     libraryDependencies ++= Seq(
       "io.prometheus" % "simpleclient" % "0.3.0",
+      scalaTest % "test"
+    )
+  )
+  .dependsOn(core)
+
+lazy val hystrixBackend: Project = (project in file("circuit-breaker/hystrix-backend"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "hystrix-backend",
+    libraryDependencies ++= Seq(
+      "com.netflix.hystrix" % "hystrix-core" % "1.5.12",
       scalaTest % "test"
     )
   )
