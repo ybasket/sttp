@@ -54,7 +54,7 @@ abstract class AsyncHttpClientBackend[R[_], S](asyncHttpClient: AsyncHttpClient,
     })
   }
 
-  override def responseMonad: MonadError[R] = rm
+  override def responseMonad: MonadAsyncError[R] = rm
 
   protected def streamBodyToPublisher(s: S): Publisher[ByteBuffer]
 

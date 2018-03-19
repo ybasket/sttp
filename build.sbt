@@ -210,10 +210,11 @@ lazy val hystrixBackend: Project = (project in file("circuit-breaker/hystrix-bac
     name := "hystrix-backend",
     libraryDependencies ++= Seq(
       "com.netflix.hystrix" % "hystrix-core" % "1.5.12",
-      scalaTest % "test"
+      scalaTest % "test",
+      akkaStreams % "test"
     )
   )
-  .dependsOn(core)
+  .dependsOn(core, akkaHttpBackend)
 
 lazy val tests: Project = (project in file("tests"))
   .settings(commonSettings: _*)

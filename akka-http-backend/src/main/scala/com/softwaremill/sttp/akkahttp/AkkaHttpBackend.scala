@@ -86,7 +86,7 @@ class AkkaHttpBackend private (actorSystem: ActorSystem,
       }
   }
 
-  override def responseMonad: MonadError[Future] = new FutureMonad()(ec)
+  override def responseMonad: MonadAsyncError[Future] = new FutureMonad()(ec)
 
   private def methodToAkka(m: Method): HttpMethod = m match {
     case Method.GET     => HttpMethods.GET
