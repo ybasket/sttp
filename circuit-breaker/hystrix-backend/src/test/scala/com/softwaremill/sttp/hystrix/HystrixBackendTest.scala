@@ -1,7 +1,6 @@
-package com.softwaremill.sttp.prometheus
+package com.softwaremill.sttp.hystrix
 
 import com.netflix.hystrix.{HystrixCommandKey, HystrixCommandMetrics, HystrixCommandProperties}
-import com.softwaremill.sttp.hystrix.HystrixBackend
 import com.softwaremill.sttp.testing.SttpBackendStub
 import com.softwaremill.sttp.{sttp, _}
 import org.scalatest.concurrent.{Eventually, IntegrationPatience, ScalaFutures}
@@ -9,14 +8,22 @@ import org.scalatest.{BeforeAndAfter, FlatSpec, Matchers, OptionValues}
 
 import scala.concurrent.Future
 
-class HystrixBackendTest extends FlatSpec with Matchers with BeforeAndAfter with Eventually with OptionValues
-  with ScalaFutures with IntegrationPatience{
+class HystrixBackendTest
+    extends FlatSpec
+    with Matchers
+    with BeforeAndAfter
+    with Eventually
+    with OptionValues
+    with ScalaFutures
+    with IntegrationPatience {
 
   it should "use default hystrix commands on async backend" in {
     // given
     val backendStub = SttpBackendStub.asynchronousFuture.whenAnyRequest.thenRespondOk()
 
-    val backend = HystrixBackend[Future, Nothing](backendStub)("TestAsyncCMD", HystrixCommandProperties.Setter().withMetricsHealthSnapshotIntervalInMilliseconds(10))
+    val backend = HystrixBackend[Future, Nothing](backendStub)(
+      "TestAsyncCMD",
+      HystrixCommandProperties.Setter().withMetricsHealthSnapshotIntervalInMilliseconds(10))
     val requestsNumber = 10
 
     // when
@@ -35,7 +42,9 @@ class HystrixBackendTest extends FlatSpec with Matchers with BeforeAndAfter with
     // given
     val backendStub = SttpBackendStub.synchronous.whenAnyRequest.thenRespondOk()
 
-    val backend = HystrixBackend[Id, Nothing](backendStub)("TestSyncCMD", HystrixCommandProperties.Setter().withMetricsHealthSnapshotIntervalInMilliseconds(10))
+    val backend = HystrixBackend[Id, Nothing](backendStub)(
+      "TestSyncCMD",
+      HystrixCommandProperties.Setter().withMetricsHealthSnapshotIntervalInMilliseconds(10))
     val requestsNumber = 10
 
     // when
