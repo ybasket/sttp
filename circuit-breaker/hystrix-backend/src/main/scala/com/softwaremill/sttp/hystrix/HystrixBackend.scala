@@ -6,14 +6,20 @@ import com.softwaremill.sttp.{MonadAsyncError, MonadError, Request, Response, St
 import rx.{Observable, Subscriber}
 
 class HystrixBackend[R[_], S] private (delegate: SttpBackend[R, S])(groupKey: String,
-                                                                    setter: HystrixCommandProperties.Setter)
+                                                                    propertySetter: HystrixCommandProperties.Setter)
     extends SttpBackend[R, S] {
+
+  import HystrixBackend._
 
   class AsyncSttpCMD[T](request: Request[T, S], delegate: SttpBackend[R, S])
       extends HystrixObservableCommand[Response[T]](
-        Setter
-          .withGroupKey(HystrixCommandGroupKey.Factory.asKey(groupKey))
-          .andCommandPropertiesDefaults(setter)
+        request.tag(HystrixAsyncConfiguration).map(_.asInstanceOf[HystrixObservableCommand.Setter]) match {
+          case None =>
+            Setter
+              .withGroupKey(HystrixCommandGroupKey.Factory.asKey(groupKey))
+              .andCommandPropertiesDefaults(propertySetter)
+          case Some(s) => s
+        }
       ) {
 
     override def construct(): Observable[Response[T]] = Observable.create(
@@ -34,11 +40,34 @@ class HystrixBackend[R[_], S] private (delegate: SttpBackend[R, S])(groupKey: St
 
   class SyncSttpCMD[T](request: Request[T, S], delegate: SttpBackend[R, S])
       extends HystrixCommand[R[Response[T]]](
-        HystrixCommand.Setter
-          .withGroupKey(HystrixCommandGroupKey.Factory.asKey(groupKey))
-          .andCommandPropertiesDefaults(setter)
+        request.tag(HystrixSyncConfiguration).map(_.asInstanceOf[HystrixCommand.Setter]) match {
+          case None =>
+            HystrixCommand.Setter
+              .withGroupKey(HystrixCommandGroupKey.Factory.asKey(groupKey))
+              .andCommandPropertiesDefaults(propertySetter)
+          case Some(s) => s
+        }
       ) {
-    override def run(): R[Response[T]] = delegate.send(request)
+
+    private var fallback: R[Response[T]] = responseMonad.unit(null)
+
+    override def run(): R[Response[T]] = {
+      val rr: R[Response[T]] = responseMonad.map(delegate.send(request)) {
+        case errResponse @ Response(Left(error), _, _, _, _) =>
+          fallback = responseMonad.unit(errResponse)
+          throw new RuntimeException(error)
+        case r: Response[T] => r
+      }
+
+      responseMonad.handleError(rr) {
+        case t: Throwable =>
+          fallback = responseMonad.error(t)
+          throw new RuntimeException(t)
+      }
+    }
+
+    override def getFallback: R[Response[T]] = fallback
+
   }
 
   override def send[T](request: Request[T, S]): R[Response[T]] = {
@@ -74,7 +103,20 @@ class HystrixBackend[R[_], S] private (delegate: SttpBackend[R, S])(groupKey: St
 
 object HystrixBackend {
   def apply[R[_], S](delegate: SttpBackend[R, S])(groupKey: String,
-                                                  setter: HystrixCommandProperties.Setter =
+                                                  propertySetter: HystrixCommandProperties.Setter =
                                                     HystrixCommandProperties.Setter()) =
-    new HystrixBackend(delegate)(groupKey, setter)
+    new HystrixBackend(delegate)(groupKey, propertySetter)
+
+  private val HystrixAsyncConfiguration = "HystrixAsyncConfiguration"
+
+  private val HystrixSyncConfiguration = "HystrixSyncConfiguration"
+
+  implicit class HystrixRichRequest[T, S](request: Request[T, S]) {
+    def configureAsyncHystrix(setter: HystrixObservableCommand.Setter): Request[T, S] =
+      request.tag(HystrixAsyncConfiguration, setter)
+
+    def configureSyncHystrix(setter: HystrixCommand.Setter): Request[T, S] =
+      request.tag(HystrixSyncConfiguration, setter)
+  }
+
 }
