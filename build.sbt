@@ -337,6 +337,18 @@ lazy val okhttpMonixBackend: Project =
   okhttpBackendProject("monix")
     .dependsOn(monixJVM % "compile->compile;test->test")
 
+//-- http4s
+lazy val http4sBackend: Project = (project in file("http4s-backend"))
+  .settings(commonJvmSettings: _*)
+  .settings(
+    name := "http4s-backend",
+    libraryDependencies ++= Seq(
+      "org.http4s" %% "http4s-blaze-client" % "0.20.0-M3",
+      scalaTest % "test"
+    )
+  )
+  .dependsOn(coreJVM, catsJVM % "compile->compile;test->test")
+
 lazy val jsonCommon = crossProject(JSPlatform, JVMPlatform)
   .withoutSuffixFor(JVMPlatform)
   .crossType(CrossType.Pure)
